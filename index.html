@@ -247,7 +247,7 @@
         tag.textContent = `${index + 1}. ${name}`;
         playersView.appendChild(tag);
       });
-      const maxImpostors = Math.max(1, state.players.length - 1);
+      const maxImpostors = Math.max(1, state.players.length - 2);
       for (const option of impostorCountSelect.options) {
         option.disabled = Number(option.value) > maxImpostors;
       }
@@ -334,7 +334,9 @@
       const player = state.players[state.turn];
       const isImpostor = state.impostors.has(state.turn);
       revealPlayer.textContent = player;
-      roleText.textContent = isImpostor ? 'You are the IMPOSTOR' : state.word;
+      roleText.textContent = isImpostor
+        ? (state.impostorCount > 1 ? `You are an IMPOSTOR (${state.impostorCount} impostors total)` : 'You are the IMPOSTOR')
+        : state.word;
       show('reveal');
     });
 
