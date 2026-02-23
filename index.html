@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Impostor Party Game</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: linear-gradient(160deg, #1f1c2c, #928dab);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      padding: 1rem;
+    }
+
+    .app {
+      width: min(720px, 100%);
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 16px;
+      padding: 1.25rem;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 35px rgba(0, 0, 0, 0.35);
+    }
+
+    h1, h2, h3 { margin: 0.2rem 0 0.8rem; }
+
+    label { display: block; margin: 0.75rem 0 0.3rem; }
+
+    input, select, button {
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      padding: 0.7rem 0.8rem;
+      font: inherit;
+    }
+
+    input, select {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+    }
+
+    button {
+      background: #ffcc00;
+      color: #222;
+      cursor: pointer;
+      margin-top: 0.8rem;
+      font-weight: 600;
+    }
+
+    button.secondary {
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+      margin-left: 0.5rem;
+    }
+
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .row { display: flex; gap: 0.5rem; }
+    .row > * { flex: 1; }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    .chip-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 0.5rem;
+    }
+
+    .chip {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 999px;
+      padding: 0.3rem 0.7rem;
+      font-size: 0.9rem;
+    }
+
+    .center {
+      text-align: center;
+      padding: 1rem 0.3rem;
+    }
+
+    .big {
+      font-size: clamp(1.2rem, 4vw, 2rem);
+      margin: 0.8rem 0;
+      font-weight: 700;
+    }
+
+    .muted { opacity: 0.8; }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section id="login-panel" class="panel active">
+      <h1>Impostor</h1>
+      <p class="muted">Host login (local only)</p>
+      <label for="host-name">Your name</label>
+      <input id="host-name" type="text" placeholder="e.g. Alex" autocomplete="name" />
+      <button id="login-btn">Continue</button>
+    </section>
+
+    <section id="setup-panel" class="panel">
+      <h2>Round setup</h2>
+      <p class="muted">Enter players in table order and configure the game.</p>
+
+      <label for="player-name">Add player</label>
+      <div class="row">
+        <input id="player-name" type="text" placeholder="Player name" />
+        <button id="add-player-btn">Add</button>
+      </div>
+
+      <div id="players" class="chip-list" aria-live="polite"></div>
+
+      <label for="category">Category (50 words each)</label>
+      <select id="category"></select>
+
+      <label for="impostor-count">Number of impostors</label>
+      <select id="impostor-count">
+        <option value="1">1</option>
+        <option value="2">2</option>
+      </select>
+
+      <div>
+        <button id="start-round-btn" disabled>Start pass-the-phone</button>
+        <button id="reset-setup-btn" class="secondary">Reset</button>
+      </div>
+    </section>
+
+    <section id="pass-panel" class="panel">
+      <h2>Pass the phone</h2>
+      <div class="center">
+        <p id="turn-info" class="muted"></p>
+        <button id="ready-btn"></button>
+      </div>
+    </section>
+
+    <section id="reveal-panel" class="panel">
+      <h2 id="reveal-player"></h2>
+      <div class="center">
+        <p class="muted">Your role</p>
+        <p id="role-text" class="big"></p>
+        <button id="hide-btn">Hide and pass</button>
+      </div>
+    </section>
+
+    <section id="done-panel" class="panel">
+      <h2>Round ready</h2>
+      <p id="summary" class="muted"></p>
+      <button id="new-round-btn">Start another round</button>
+    </section>
+  </main>
+
+  <script>
+    const categories = {
+      Animals: [
+        "Dog","Cat","Elephant","Lion","Tiger","Giraffe","Zebra","Kangaroo","Koala","Panda",
+        "Dolphin","Shark","Whale","Octopus","Penguin","Eagle","Falcon","Owl","Parrot","Swan",
+        "Horse","Cow","Sheep","Goat","Pig","Rabbit","Hamster","Squirrel","Fox","Wolf",
+        "Bear","Deer","Moose","Rhino","Hippo","Crocodile","Alligator","Snake","Frog","Turtle",
+        "Butterfly","Bee","Ant","Spider","Crab","Lobster","Seal","Otter","Camel","Donkey"
+      ],
+      Food: [
+        "Pizza","Burger","Sushi","Pasta","Taco","Burrito","Salad","Soup","Steak","Sandwich",
+        "Pancake","Waffle","Omelet","Curry","Ramen","Dumpling","Noodles","Rice","Paella","Lasagna",
+        "Apple","Banana","Orange","Grapes","Strawberry","Blueberry","Mango","Pineapple","Peach","Pear",
+        "Carrot","Potato","Tomato","Cucumber","Lettuce","Broccoli","Onion","Garlic","Mushroom","Corn",
+        "Cheese","Yogurt","Chocolate","Cookie","Cake","Ice Cream","Donut","Popcorn","Pretzel","Nachos"
+      ],
+      Places: [
+        "Beach","Mountain","Desert","Forest","Jungle","Island","River","Lake","Waterfall","Canyon",
+        "Airport","Train Station","Bus Stop","Harbor","Bridge","Tunnel","Highway","Parking Lot","Gas Station","Subway",
+        "School","Library","Museum","Theater","Cinema","Hospital","Pharmacy","Bank","Post Office","Police Station",
+        "Restaurant","Cafe","Bakery","Supermarket","Mall","Gym","Stadium","Zoo","Aquarium","Amusement Park",
+        "Hotel","Campsite","Castle","Temple","Church","Mosque","Skyscraper","Factory","Farm","Lighthouse"
+      ],
+      Jobs: [
+        "Doctor","Nurse","Teacher","Engineer","Programmer","Designer","Chef","Baker","Farmer","Pilot",
+        "Flight Attendant","Police Officer","Firefighter","Lawyer","Judge","Dentist","Pharmacist","Scientist","Researcher","Mechanic",
+        "Electrician","Plumber","Carpenter","Architect","Construction Worker","Accountant","Banker","Cashier","Salesperson","Barber",
+        "Hairdresser","Photographer","Journalist","Writer","Editor","Librarian","Translator","Musician","Singer","Actor",
+        "Director","Athlete","Coach","Trainer","Waiter","Bartender","Delivery Driver","Taxi Driver","Security Guard","Paramedic"
+      ],
+      Objects: [
+        "Chair","Table","Sofa","Bed","Lamp","Mirror","Clock","Calendar","Candle","Vase",
+        "Phone","Laptop","Tablet","Keyboard","Mouse","Monitor","Printer","Camera","Headphones","Speaker",
+        "Book","Notebook","Pen","Pencil","Eraser","Ruler","Backpack","Wallet","Keys","Umbrella",
+        "Bottle","Cup","Plate","Bowl","Fork","Spoon","Knife","Pan","Pot","Toaster",
+        "Bicycle","Helmet","Watch","Glasses","Shoes","Jacket","Hat","Scarf","Gloves","Ring"
+      ]
+    };
+
+    const panels = {
+      login: document.getElementById('login-panel'),
+      setup: document.getElementById('setup-panel'),
+      pass: document.getElementById('pass-panel'),
+      reveal: document.getElementById('reveal-panel'),
+      done: document.getElementById('done-panel')
+    };
+
+    const MIN_PLAYERS = 3;
+
+    const state = {
+      host: '',
+      players: [],
+      category: 'Animals',
+      word: '',
+      impostors: new Set(),
+      turn: 0,
+      impostorCount: 1
+    };
+
+    const hostInput = document.getElementById('host-name');
+    const loginBtn = document.getElementById('login-btn');
+    const playerInput = document.getElementById('player-name');
+    const addPlayerBtn = document.getElementById('add-player-btn');
+    const playersView = document.getElementById('players');
+    const categorySelect = document.getElementById('category');
+    const impostorCountSelect = document.getElementById('impostor-count');
+    const startRoundBtn = document.getElementById('start-round-btn');
+    const resetSetupBtn = document.getElementById('reset-setup-btn');
+    const readyBtn = document.getElementById('ready-btn');
+    const turnInfo = document.getElementById('turn-info');
+    const revealPlayer = document.getElementById('reveal-player');
+    const roleText = document.getElementById('role-text');
+    const hideBtn = document.getElementById('hide-btn');
+    const summary = document.getElementById('summary');
+    const newRoundBtn = document.getElementById('new-round-btn');
+
+    function show(panelName) {
+      for (const panel of Object.values(panels)) panel.classList.remove('active');
+      panels[panelName].classList.add('active');
+    }
+
+    function refreshPlayers() {
+      playersView.innerHTML = '';
+      state.players.forEach((name, index) => {
+        const tag = document.createElement('span');
+        tag.className = 'chip';
+        tag.textContent = `${index + 1}. ${name}`;
+        playersView.appendChild(tag);
+      });
+      const maxImpostors = Math.max(1, state.players.length - 2);
+      for (const option of impostorCountSelect.options) {
+        option.disabled = Number(option.value) > maxImpostors;
+      }
+      if (Number(impostorCountSelect.value) > maxImpostors) {
+        impostorCountSelect.value = String(maxImpostors);
+      }
+      state.impostorCount = Number(impostorCountSelect.value);
+      startRoundBtn.disabled = state.players.length < MIN_PLAYERS;
+    }
+
+    function randomPick(list) {
+      return list[Math.floor(Math.random() * list.length)];
+    }
+
+    function createRound() {
+      const pool = [...state.players.keys()];
+      state.impostors = new Set();
+      while (state.impostors.size < state.impostorCount && pool.length) {
+        const randomIndex = Math.floor(Math.random() * pool.length);
+        const [picked] = pool.splice(randomIndex, 1);
+        state.impostors.add(picked);
+      }
+      state.word = randomPick(categories[state.category]);
+      state.turn = 0;
+    }
+
+    function updateTurnPrompt() {
+      const player = state.players[state.turn];
+      if (!player) return;
+      turnInfo.textContent = `Pass to player ${state.turn + 1} of ${state.players.length}`;
+      readyBtn.textContent = `${player}, tap when ready`;
+    }
+
+    Object.keys(categories).forEach((name) => {
+      const option = document.createElement('option');
+      option.value = name;
+      option.textContent = name;
+      categorySelect.appendChild(option);
+    });
+
+    loginBtn.addEventListener('click', () => {
+      const host = hostInput.value.trim();
+      if (!host) return;
+      state.host = host;
+      show('setup');
+      playerInput.focus();
+    });
+
+    addPlayerBtn.addEventListener('click', () => {
+      const name = playerInput.value.trim();
+      if (!name || state.players.includes(name)) return;
+      state.players.push(name);
+      playerInput.value = '';
+      refreshPlayers();
+      playerInput.focus();
+    });
+
+    playerInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') addPlayerBtn.click();
+    });
+
+    categorySelect.addEventListener('change', () => {
+      state.category = categorySelect.value;
+    });
+
+    impostorCountSelect.addEventListener('change', () => {
+      state.impostorCount = Number(impostorCountSelect.value);
+    });
+
+    resetSetupBtn.addEventListener('click', () => {
+      state.players = [];
+      refreshPlayers();
+    });
+
+    startRoundBtn.addEventListener('click', () => {
+      state.category = categorySelect.value;
+      state.impostorCount = Number(impostorCountSelect.value);
+      createRound();
+      updateTurnPrompt();
+      show('pass');
+    });
+
+    readyBtn.addEventListener('click', () => {
+      const player = state.players[state.turn];
+      const isImpostor = state.impostors.has(state.turn);
+      revealPlayer.textContent = player;
+      roleText.textContent = isImpostor
+        ? (state.impostorCount > 1 ? `You are an IMPOSTOR (${state.impostorCount} impostors total)` : 'You are the IMPOSTOR')
+        : state.word;
+      show('reveal');
+    });
+
+    hideBtn.addEventListener('click', () => {
+      state.turn += 1;
+      if (state.turn >= state.players.length) {
+        summary.textContent = `${state.host}'s round is ready. Category: ${state.category}. Total players: ${state.players.length}.`;
+        show('done');
+        return;
+      }
+      updateTurnPrompt();
+      show('pass');
+    });
+
+    newRoundBtn.addEventListener('click', () => {
+      createRound();
+      updateTurnPrompt();
+      show('pass');
+    });
+
+    refreshPlayers();
+  </script>
+</body>
+</html>
