@@ -126,6 +126,9 @@
       <select id="impostor-count">
         <option value="1">1</option>
         <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
       </select>
 
       <div>
@@ -214,7 +217,8 @@
       word: '',
       impostors: new Set(),
       turn: 0,
-      impostorCount: 1
+      impostorCount: 1,
+      startingPlayer: ''
     };
 
     const hostInput = document.getElementById('host-name');
@@ -343,7 +347,8 @@
     hideBtn.addEventListener('click', () => {
       state.turn += 1;
       if (state.turn >= state.players.length) {
-        summary.textContent = `${state.host}'s round is ready. Category: ${state.category}. Total players: ${state.players.length}.`;
+        state.startingPlayer = randomPick(state.players);
+        summary.textContent = `${state.host}'s round is ready. ${state.startingPlayer} starts. Category: ${state.category}. Total players: ${state.players.length}.`;
         show('done');
         return;
       }
